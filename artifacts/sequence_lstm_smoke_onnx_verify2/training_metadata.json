@@ -1,0 +1,23 @@
+﻿{
+  "data_path": "C:\\Users\\Pranav Thorat\\Desktop\\FF\\fastapi-fraud\\artifacts\\smoke_data\\card_transaction_5k_stratified.csv",
+  "seq_length": 7,
+  "input_size": 161,
+  "batch_size": 8,
+  "onnx_batch_size": 8,
+  "model_type": "lstm",
+  "units": [
+    32,
+    32
+  ],
+  "split_sizes": {
+    "train": 2333,
+    "validate": 1400,
+    "test": 934
+  },
+  "artifacts": {
+    "mapper": "C:\\Users\\Pranav Thorat\\Desktop\\FF\\fastapi-fraud\\artifacts\\sequence_lstm_smoke_onnx_verify2\\fitted_mapper.pkl",
+    "keras_model": "",
+    "keras_weights": "",
+    "onnx_model": "C:\\Users\\Pranav Thorat\\Desktop\\FF\\fastapi-fraud\\artifacts\\sequence_lstm_smoke_onnx_verify2\\fraud_rnn_static.onnx"
+  }
+}

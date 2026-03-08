@@ -1,0 +1,53 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache/build
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local env/config
+.env
+.env.*
+
+# Logs
+*.log
+logs/
+
+# Generated docs/reports
+docs/
+*.pdf
+*.docx
+
+# Data and datasets
+data/
+dataset/
+datasets/
+*.csv
+*.parquet
+*.feather
+*.h5
+*.hdf5
+
+
+# OS files
+.DS_Store
+Thumbs.db
