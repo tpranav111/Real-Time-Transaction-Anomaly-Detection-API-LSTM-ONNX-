@@ -7,3 +7,4 @@ pandas==2.3.2
 joblib==1.5.2
 scikit-learn==1.6.1
 sklearn-pandas==2.2.0
+redis==5.2.1

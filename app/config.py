@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 
 
-def _parse_bool(value: str, default: bool) -> bool:
+def _parse_bool(value: str | None, default: bool) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "y", "on"}
@@ -25,6 +25,12 @@ class Settings:
     approve_threshold: float = float(os.getenv("APPROVE_THRESHOLD", "0.25"))
     challenge_threshold: float = float(os.getenv("CHALLENGE_THRESHOLD", "0.60"))
     decline_threshold: float = float(os.getenv("DECLINE_THRESHOLD", "0.85"))
+
+    # Sequence state backend configuration
+    sequence_store_backend: str = os.getenv("SEQUENCE_STORE_BACKEND", "memory")
+    redis_url: str | None = os.getenv("REDIS_URL")
+    redis_key_prefix: str = os.getenv("REDIS_KEY_PREFIX", "fraud:seq")
+    redis_ttl_seconds: int = int(os.getenv("REDIS_TTL_SECONDS", "0"))
 
 
 settings = Settings()

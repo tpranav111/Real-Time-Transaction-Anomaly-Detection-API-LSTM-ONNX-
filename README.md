@@ -44,6 +44,7 @@ Fraud signals are temporal. A transaction should be scored not only on its curre
   - direct feature vector (`features`)
   - raw transaction (`raw_transaction`) mapped online with fitted mapper.
 - ONNX export integrated into training script.
+- Pluggable sequence state backend (`memory` or `redis`) for online context management.
 
 ---
 
@@ -75,7 +76,7 @@ flowchart LR
 3. Either:
    - use provided `features`, or
    - map `raw_transaction -> feature vector` via fitted mapper.
-4. Sequence state is updated for `entity_id`.
+4. Sequence state is updated for `entity_id` in selected backend (`memory` or `redis`).
 5. Sequence tensor is formed and passed to ONNX model.
 6. Score is translated to decision using policy thresholds.
 7. Response returns score, decision, reasons, model version, and latency.
@@ -95,11 +96,11 @@ flowchart LR
 - Service bootstrap and endpoint wiring.
 - Startup:
   - initializes `FraudModel` from `MODEL_PATH`.
-  - initializes `SequenceStore` from model signature.
+  - initializes sequence store backend (memory or Redis) from model signature.
   - loads `TransactionFeatureMapper` from `MAPPER_PATH`.
 - Score path:
   - chooses input mode (`features` or `raw_transaction`).
-  - updates sequence memory.
+  - updates sequence state backend (memory or Redis).
   - calls model runtime.
   - applies policy thresholds.
 
@@ -122,11 +123,18 @@ flowchart LR
   - missing categorical handling with `np.nan`.
 
 #### `app/sequence_store.py`
-- Per-entity in-memory deque with maxlen `seq_len`.
+- Pluggable sequence state backend with factory-based initialization.
+- Backends:
+  - `InMemorySequenceStore` for single-process runtime.
+  - `RedisSequenceStore` for shared, cross-instance state.
+- Redis storage model:
+  - key format: `<REDIS_KEY_PREFIX>:<entity_id>`
+  - each list entry stores one `float32` feature vector
+  - list is trimmed to latest `seq_len` events, optional TTL.
 - Supports:
   - strict full-sequence mode,
   - optional left-padding mode.
-- Validates incoming feature length against model contract.
+- Validates incoming feature length and payload shape against model contract.
 
 #### `app/policy.py`
 - Threshold-based decision policy:
@@ -156,7 +164,7 @@ sequenceDiagram
     participant Client
     participant API as FastAPI /v1/score
     participant Mapper as TransactionFeatureMapper
-    participant Seq as SequenceStore
+    participant Seq as SequenceStateStore (Memory/Redis)
     participant Model as ONNX Runtime
     participant Policy as Decision Policy
 
@@ -261,6 +269,14 @@ Mapper transformations include:
 
 ### 6.3 Sequence Policies
 Configured via env:
+- `SEQUENCE_STORE_BACKEND`:
+  - `memory` (default) or `redis`.
+- `REDIS_URL`:
+  - required when backend is `redis` (example: `redis://localhost:6379/0`).
+- `REDIS_KEY_PREFIX`:
+  - key namespace for entity history (default: `fraud:seq`).
+- `REDIS_TTL_SECONDS`:
+  - optional expiry for entity sequence keys; `0` means no expiry.
 - `REQUIRE_FULL_SEQUENCE`:
   - strict mode; score only after enough history.
 - `PAD_SHORT_SEQUENCES`:
@@ -317,6 +333,8 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+`requirements.txt` includes the `redis` Python client needed for Redis backend mode.
+
 ### 8.2 Training Dependencies
 ```powershell
 pip install -r requirements-train.txt
@@ -365,25 +383,43 @@ Expected key artifacts:
 
 ## 10. Run Inference
 
-### 10.1 Start API
+### 10.1 Start API (Memory Backend)
 ```powershell
 $env:MODEL_PATH="artifacts/sequence_lstm_smoke_onnx_verify2/fraud_rnn_static.onnx"
 $env:MAPPER_PATH="artifacts/sequence_lstm_smoke_onnx_verify2/fitted_mapper.pkl"
 $env:MODEL_VERSION="smoke-onnx-v1"
+$env:SEQUENCE_STORE_BACKEND="memory"
 $env:REQUIRE_FULL_SEQUENCE="false"
 $env:PAD_SHORT_SEQUENCES="true"
 
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-### 10.2 Quick Health Checks
+### 10.2 Start API (Redis Backend)
+```powershell
+$env:MODEL_PATH="artifacts/sequence_lstm_smoke_onnx_verify2/fraud_rnn_static.onnx"
+$env:MAPPER_PATH="artifacts/sequence_lstm_smoke_onnx_verify2/fitted_mapper.pkl"
+$env:MODEL_VERSION="smoke-onnx-v1"
+$env:SEQUENCE_STORE_BACKEND="redis"
+$env:REDIS_URL="redis://localhost:6379/0"
+$env:REDIS_KEY_PREFIX="fraud:seq"
+$env:REDIS_TTL_SECONDS="604800"
+$env:REQUIRE_FULL_SEQUENCE="false"
+$env:PAD_SHORT_SEQUENCES="true"
+
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Prerequisite: a reachable Redis server must be available at `REDIS_URL`.
+
+### 10.3 Quick Health Checks
 ```powershell
 Invoke-RestMethod http://localhost:8000/health/live
 Invoke-RestMethod http://localhost:8000/health/ready
 Invoke-RestMethod http://localhost:8000/v1/model/meta
 ```
 
-### 10.3 Scoring Call
+### 10.4 Scoring Call
 Use either:
 - raw payload using known training categories, or
 - direct `features` payload with exact dimension from `/v1/model/meta`.
@@ -417,7 +453,7 @@ Resolution:
 
 ## 12. Production Hardening Roadmap
 
-1. Replace in-memory sequence store with Redis/Aerospike.
+1. Add Redis high-availability (Sentinel/Cluster) and failover handling.
 2. Replace brittle label encoding with OOV-safe encoding.
 3. Add model registry and versioned deployment pipeline.
 4. Add observability:

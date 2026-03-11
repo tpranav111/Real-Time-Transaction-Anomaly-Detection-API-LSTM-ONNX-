@@ -1,20 +1,20 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import time
 
 from fastapi import FastAPI, HTTPException
 
 from app.config import settings
-from app.transaction_preprocessing import TransactionFeatureMapper
 from app.model_runtime import FraudModel
 from app.policy import decide
 from app.schemas import ModelMetaResponse, ScoreRequest, ScoreResponse
-from app.sequence_store import SequenceStore
+from app.sequence_store import SequenceStoreBackend, create_sequence_store
+from app.transaction_preprocessing import TransactionFeatureMapper
 
 app = FastAPI(title="Fraud Scoring API", version="1.0.0")
 
 model: FraudModel | None = None
-sequence_store: SequenceStore | None = None
+sequence_store: SequenceStoreBackend | None = None
 feature_mapper: TransactionFeatureMapper | None = None
 
 
@@ -22,9 +22,13 @@ feature_mapper: TransactionFeatureMapper | None = None
 def startup() -> None:
     global model, sequence_store, feature_mapper
     model = FraudModel(settings.model_path)
-    sequence_store = SequenceStore(
+    sequence_store = create_sequence_store(
+        backend=settings.sequence_store_backend,
         seq_len=model.signature.expected_seq_len,
         feature_dim=model.signature.expected_feature_dim,
+        redis_url=settings.redis_url,
+        redis_key_prefix=settings.redis_key_prefix,
+        redis_ttl_seconds=settings.redis_ttl_seconds,
     )
     feature_mapper = TransactionFeatureMapper(settings.mapper_path)
 
@@ -101,4 +105,3 @@ def score(payload: ScoreRequest) -> ScoreResponse:
         model_version=settings.model_version,
         latency_ms=round(latency_ms, 2),
     )
-
