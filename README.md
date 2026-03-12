@@ -467,6 +467,6 @@ Resolution:
 ---
 
 ## References
-- upstream fraud detection repository: `https://github.com/reference-org/ai-on-z-fraud-detection`
-- dataset lineage: `https://github.com/reference-org/TabFormer/tree/main/data/credit_card`
+- https://github.com/IBM/ai-on-z-fraud-detection`
+- https://github.com/reference-org/TabFormer/tree/main/data/credit_card`
 
